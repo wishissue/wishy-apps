@@ -9,9 +9,14 @@
   const RAW = 'https://raw.githubusercontent.com';
   const CACHE_KEY = 'app-shelf:v1';
   const CACHE_TTL = 15 * 60 * 1000;
+  const CONFIG_KEY = 'app-shelf:config';
+  const BACKUP_URL = 'apps-backup.json'; // snapshot of the live data, refreshed by a GitHub Action
+  const REQUEST_TIMEOUT = 8000;
+  const LIVE_TIMEOUT = 12000;
+  const IN_BROWSER = typeof document !== 'undefined';
 
-  const main = document.getElementById('main');
-  const lightbox = document.getElementById('lightbox');
+  const main = IN_BROWSER ? document.getElementById('main') : null;
+  const lightbox = IN_BROWSER ? document.getElementById('lightbox') : null;
   const collator = new Intl.Collator(undefined, { numeric: true });
 
   let state = null; // { cfg, data }
@@ -43,8 +48,24 @@
     }
   }
 
+  function timeoutSignal(ms) {
+    return typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined;
+  }
+
+  function withTimeout(promise, ms) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Timed out')), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  }
+
   async function gh(path) {
-    const res = await fetch(API + path, { headers: { Accept: 'application/vnd.github+json' } });
+    const headers = { Accept: 'application/vnd.github+json' };
+    // Only set when the snapshot script runs inside GitHub Actions; never in a browser.
+    const token = typeof process !== 'undefined' && process.env && process.env.GITHUB_TOKEN;
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(API + path, { headers, signal: timeoutSignal(REQUEST_TIMEOUT) });
     if (!res.ok) {
       const limited = (res.status === 403 || res.status === 429) &&
         res.headers.get('x-ratelimit-remaining') === '0';
@@ -55,7 +76,7 @@
 
   async function fetchText(url) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: timeoutSignal(REQUEST_TIMEOUT) });
       return res.ok ? await res.text() : '';
     } catch (err) {
       return '';
@@ -68,11 +89,8 @@
     throw err;
   }
 
-  async function loadConfig() {
-    const res = await fetch('apps.json', { cache: 'no-cache' });
-    if (!res.ok) throw new Error('Could not read apps.json');
-    const raw = await res.json();
-    const owner = String(raw.owner || '').trim();
+  function normalizeConfig(raw) {
+    const owner = String((raw && raw.owner) || '').trim();
     if (!owner) throw new Error('apps.json needs an "owner" (your GitHub username).');
     const apps = (raw.apps || [])
       .map((a) => (typeof a === 'string' ? { repo: a } : a))
@@ -80,34 +98,146 @@
     return Object.assign({}, raw, { owner, apps });
   }
 
-  function readCache(key) {
+  function readJSON(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch (err) { return null; }
+  }
+
+  function writeJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (err) { /* storage unavailable: fine */ }
+  }
+
+  let backupPromise = null;
+  function loadBackup() {
+    if (!backupPromise) {
+      backupPromise = fetch(BACKUP_URL, { signal: timeoutSignal(REQUEST_TIMEOUT) })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((b) => (b && Array.isArray(b.apps) ? b : null))
+        .catch(() => null);
+    }
+    return backupPromise;
+  }
+
+  // Config order of preference: apps.json, then the last good copy in this browser,
+  // then the copy stored inside the backup snapshot.
+  async function loadConfig() {
     try {
-      const c = JSON.parse(localStorage.getItem(CACHE_KEY));
-      return c && c.key === key ? c : null;
+      const res = await fetch('apps.json', { cache: 'no-cache', signal: timeoutSignal(REQUEST_TIMEOUT) });
+      if (!res.ok) throw new Error('Could not read apps.json');
+      const raw = await res.json();
+      const config = normalizeConfig(raw);
+      writeJSON(CONFIG_KEY, raw);
+      return config;
     } catch (err) {
-      return null;
+      console.warn('[app shelf] apps.json failed, using a saved copy.', err);
+      const saved = readJSON(CONFIG_KEY);
+      if (saved) { try { return normalizeConfig(saved); } catch (e) { /* try the next one */ } }
+      const backup = await loadBackup();
+      if (backup && backup.config) { try { return normalizeConfig(backup.config); } catch (e) { /* give up below */ } }
+      throw err;
     }
   }
 
+  function readCache(key) {
+    const c = readJSON(CACHE_KEY);
+    return c && c.key === key ? c : null;
+  }
+
   function writeCache(key, data) {
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ key, t: Date.now(), data }));
-    } catch (err) { /* storage unavailable: fine */ }
+    writeJSON(CACHE_KEY, { key, t: Date.now(), data });
+  }
+
+  /* ---------- fallbacks: used whenever the live GitHub data can't be fetched ---------- */
+
+  function slugOf(entry) {
+    return String(entry.repo).split('/').pop().toLowerCase();
+  }
+
+  // Last resort. Needs nothing but apps.json, so a page can always be built.
+  function minimalApp(config, entry) {
+    let owner = entry.owner || config.owner;
+    let repo = String(entry.repo);
+    if (repo.includes('/')) [owner, repo] = repo.split('/');
+    const url = `https://github.com/${owner}/${repo}`;
+    const homepage = /^https?:\/\//i.test(entry.homepage || '') ? entry.homepage : '';
+    let primary = { href: `${url}/releases/latest`, label: 'Get', long: 'Download', external: false };
+    if (entry.download) primary = { href: entry.download, label: 'Get', long: 'Download', external: false };
+    else if (homepage) primary = { href: homepage, label: 'Open', long: 'Open app', external: true };
+    return {
+      slug: repo.toLowerCase(),
+      name: entry.name || capitalize(repo.replace(/[-_]+/g, ' ')),
+      tagline: entry.tagline || '',
+      about: entry.about || '',
+      platform: entry.platform || (homepage ? 'Web' : ''),
+      beta: false,
+      iconUrl: /^https?:\/\//i.test(entry.icon || '') ? entry.icon : '',
+      shots: [],
+      downloads: [],
+      primary,
+      forced: true,
+      web: '',
+      version: '',
+      updated: '',
+      size: 0,
+      license: '',
+      repoUrl: url,
+      releasesUrl: `${url}/releases`,
+      issuesUrl: '',
+      androidApk: false,
+    };
+  }
+
+  // Re-pick the download button for this visitor's device (the snapshot was made on a server).
+  function retarget(app) {
+    if (app.forced || !app.downloads || !app.downloads.length) return app;
+    const best = pickPrimary(app.downloads);
+    if (!best) return app;
+    return Object.assign({}, app, {
+      primary: { href: best.url, label: 'Get', long: best.os === 'Other' ? 'Download' : `Download for ${best.os}`, external: false },
+    });
+  }
+
+  // Build the list in apps.json order from the snapshot; anything the snapshot lacks gets the minimal version.
+  function fromBackup(config, backup) {
+    const saved = new Map(((backup && backup.apps) || []).map((a) => [a.slug, a]));
+    return config.apps.map((entry) => {
+      const hit = saved.get(slugOf(entry));
+      if (!hit) return minimalApp(config, entry);
+      const app = Object.assign({}, hit);
+      for (const k of ['name', 'tagline', 'about', 'platform']) if (entry[k]) app[k] = entry[k];
+      if (entry.download) {
+        app.primary = { href: entry.download, label: 'Get', long: 'Download', external: false };
+        app.forced = true;
+      }
+      return retarget(app);
+    });
   }
 
   async function loadApps(config) {
     const key = JSON.stringify([config.owner, config.apps]);
     const cached = readCache(key);
-    const forceRefresh = /[?&]refresh\b/.test(location.search);
+    const forceRefresh = /[?&]refresh\b/.test(typeof location !== 'undefined' ? location.search : '');
     if (cached && !forceRefresh && Date.now() - cached.t < CACHE_TTL) return cached.data;
+
+    // 1. Live from GitHub. If it is slow it keeps running and still fills the cache for next time.
+    const live = fetchApps(config).then((data) => { writeCache(key, data); return data; });
     try {
-      const data = await fetchApps(config);
-      writeCache(key, data);
-      return data;
+      return await withTimeout(live, LIVE_TIMEOUT);
     } catch (err) {
-      if (cached) return cached.data; // old info beats an error page
-      throw err;
+      live.catch(() => {});
+      console.warn('[app shelf] GitHub unavailable, using a fallback.', err);
     }
+
+    // 2. The last live result saved in this browser.
+    if (cached) return Object.assign({}, cached.data, { offline: true });
+
+    // 3. The snapshot file that ships with the site.
+    const backup = await loadBackup();
+    if (backup) {
+      return { apps: fromBackup(config, backup), offline: true, snapshot: backup.generated || '' };
+    }
+
+    // 4. Plain links built from apps.json alone. This cannot fail.
+    return { apps: config.apps.map((entry) => minimalApp(config, entry)), offline: true };
   }
 
   async function fetchApps(config) {
@@ -282,7 +412,7 @@
   }
 
   function visitorOS() {
-    const ua = navigator.userAgent || '';
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
     if (/android/i.test(ua)) return 'Android';
     if (/iphone|ipad|ipod/i.test(ua)) return 'iOS';
     if (/windows/i.test(ua)) return 'Windows';
@@ -375,6 +505,7 @@
       shots,
       downloads,
       primary,
+      forced: !!entry.download,
       web: homepage && best ? homepage : '',
       version,
       updated: (release && release.published_at) || repo.pushed_at || '',
@@ -462,13 +593,20 @@
       h('ul', { class: 'list' }, row(), row(), row(), row()));
   }
 
+  // replaceChildren turns null into the text "null", so drop empty slots first.
+  function show(...nodes) {
+    main.replaceChildren(...nodes.filter(Boolean));
+  }
+
   function renderHome() {
     const heading = cfg.heading || `Apps by ${cfg.title || cfg.owner}`;
     document.title = heading;
-    main.replaceChildren(
+    show(
       h('section', { class: 'hero' },
         h('h1', {}, heading),
         h('p', {}, cfg.intro || 'Pick an app and tap Get. Downloads come straight from GitHub, and you don\'t need an account.')),
+      state.data.offline && h('p', { class: 'banner', role: 'status' },
+        'GitHub couldn\'t be reached, so you\'re seeing saved info. Downloads still work, and details refresh when GitHub is back.'),
       state.data.apps.length
         ? h('ul', { class: 'list' }, state.data.apps.map(appRow))
         : h('p', { class: 'empty' }, 'No apps to show yet. Add repository names to apps.json to list them here.'));
@@ -525,7 +663,7 @@
             h('a', { class: 'btn soft sm', href: d.url, 'aria-label': `Download ${d.name}` }, 'Download')))))
       : null;
 
-    main.replaceChildren(
+    show(
       h('a', { class: 'back', href: '#/' }, '‹ All apps'),
       h('header', { class: 'detail-head' },
         icon(app, true),
@@ -591,6 +729,12 @@
       'Made by ',
       h('a', { href: `https://github.com/${encodeURIComponent(cfg.owner)}`, target: '_blank', rel: 'noopener' }, name),
       '. Everything here is read live from GitHub.');
+  }
+
+  // Loaded from Node (the snapshot script): expose the data code and skip the page code.
+  if (!IN_BROWSER) {
+    module.exports = { normalizeConfig, fetchApps };
+    return;
   }
 
   lightbox.addEventListener('click', () => lightbox.close());
