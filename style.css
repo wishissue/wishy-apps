@@ -68,7 +68,7 @@ main:focus { outline: none; }
 .skip:focus { top: 1rem; }
 
 /* Header and footer */
-header.site { padding: 1.25rem 0 0; }
+header.site { padding: 1.25rem 0 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 
 .brand {
   display: inline-flex;
@@ -284,6 +284,11 @@ details.help p { margin: .75rem 0 0; color: var(--muted); }
 .row.skeleton .bar { height: 1rem; margin: .5rem 0; }
 .row.skeleton .bar.short { width: 40%; }
 
+@media (prefers-reduced-motion: no-preference) {
+  .row.skeleton { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .55; } }
+}
+
 /* Lightbox */
 .lightbox {
   max-width: 96vw;
@@ -330,125 +335,32 @@ details.help p { margin: .75rem 0 0; color: var(--muted); }
 }
 
 
-/* ---------- Motion ---------- */
-/* Everything below only runs for people who haven't asked their device to reduce motion. */
-@media (prefers-reduced-motion: no-preference) {
-  :root { --bounce: cubic-bezier(.34, 1.56, .64, 1); }
+/* Community links */
+.socials { display: flex; gap: .5rem; }
+.social .ico { flex: none; width: 1.15em; height: 1.15em; margin-right: .5em; }
+.socials .btn { min-height: 2.25rem; }
 
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: none; }
-  }
-  @keyframes pop {
-    from { opacity: 0; transform: scale(.6) rotate(-8deg); }
-    to   { opacity: 1; transform: none; }
-  }
-  @keyframes shimmer {
-    from { background-position: 100% 0; }
-    to   { background-position: -100% 0; }
-  }
-  @keyframes dots {
-    from { width: 0; }
-    to   { width: 1.1em; }
-  }
-  @keyframes drop-in {
-    from { opacity: 0; transform: translateY(-10px); }
-    to   { opacity: 1; transform: none; }
-  }
-  @keyframes zoom-in {
-    from { opacity: 0; transform: scale(.88); }
-    to   { opacity: 1; transform: none; }
-  }
-  @keyframes fade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
+.links a.social-link { display: inline-flex; align-items: center; }
+.links a.social-link .ico { width: 1.1em; height: 1.1em; margin-right: .4em; }
 
-  /* Loading: shimmering placeholders and animated dots after "Loading apps" */
-  .row.skeleton .icon,
-  .row.skeleton .bar {
-    background-image: linear-gradient(100deg, transparent 30%, var(--surface) 50%, transparent 70%);
-    background-size: 300% 100%;
-    animation: shimmer 1.3s linear infinite;
-  }
-  .row.skeleton:nth-child(2) .icon,
-  .row.skeleton:nth-child(2) .bar { animation-delay: .15s; }
-  .row.skeleton:nth-child(3) .icon,
-  .row.skeleton:nth-child(3) .bar { animation-delay: .3s; }
-  .row.skeleton:nth-child(4) .icon,
-  .row.skeleton:nth-child(4) .bar { animation-delay: .45s; }
+.community {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin: 0 0 3rem;
+  padding: 1.4rem 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+}
+.community h2 { margin: 0 0 .2rem; font: 700 1.3rem/1.2 var(--font-display); }
+.community p { margin: 0; max-width: 40ch; color: var(--muted); }
+.community .actions { margin: 0; }
 
-  [aria-label="Loading apps"] h1::after {
-    content: "...";
-    display: inline-block;
-    width: 0;
-    overflow: hidden;
-    vertical-align: bottom;
-    animation: dots 1.2s steps(4, end) infinite;
-  }
-
-  /* Entrances: things slide up one after another. They replay when you change page. */
-  main > :not(.list) { animation: rise .45s ease-out backwards; animation-delay: calc(var(--i, 0) * 70ms); }
-  main > :nth-child(2) { --i: 1; }
-  main > :nth-child(3) { --i: 2; }
-  main > :nth-child(4) { --i: 3; }
-  main > :nth-child(5) { --i: 4; }
-  main > :nth-child(6) { --i: 5; }
-  main > :nth-child(n+7) { --i: 6; }
-
-  .list > .row:not(.skeleton) {
-    --i: 8;
-    animation: rise .5s ease-out backwards;
-    animation-delay: calc(.12s + var(--i) * 70ms);
-  }
-  .list > .row:nth-child(1) { --i: 0; }
-  .list > .row:nth-child(2) { --i: 1; }
-  .list > .row:nth-child(3) { --i: 2; }
-  .list > .row:nth-child(4) { --i: 3; }
-  .list > .row:nth-child(5) { --i: 4; }
-  .list > .row:nth-child(6) { --i: 5; }
-  .list > .row:nth-child(7) { --i: 6; }
-  .list > .row:nth-child(8) { --i: 7; }
-
-  /* App icons pop in with a little bounce */
-  .row:not(.skeleton) .icon,
-  .detail-head .icon {
-    animation: pop .6s var(--bounce) backwards;
-    animation-delay: calc(.2s + var(--i, 0) * 70ms);
-  }
-
-  /* The offline notice drops in from the top */
-  .banner { animation: drop-in .4s ease-out .25s backwards; }
-
-  /* Hover and press: small, quick, playful */
-  .icon, .brand img { transition: transform .35s var(--bounce); }
-  .row:hover .icon { transform: rotate(-6deg) scale(1.08); }
-  .brand:hover img { transform: rotate(360deg); transition-duration: .7s; }
-
-  .btn { transition: transform .2s var(--bounce), filter .2s; }
-  .btn:hover { transform: translateY(-2px) scale(1.04); }
-  .btn:active { transform: scale(.94); transition-duration: .08s; }
-
-  .back { transition: transform .2s ease, color .2s; }
-  .back:hover { transform: translateX(-4px); }
-
-  .shots button { transition: transform .25s var(--bounce), box-shadow .25s; }
-  .shots button:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 10px 24px rgb(20 20 60 / .22); }
-  .shots button:active { transform: scale(.98); }
-
-  .fact { transition: transform .2s ease; }
-  .fact:hover { transform: translateY(-2px); }
-
-  .dl li { transition: padding-left .2s ease; }
-  .dl li:hover { padding-left: .5rem; }
-
-  .chip { transition: transform .2s var(--bounce); }
-  .chip:hover { transform: scale(1.1); }
-
-  /* Opening things */
-  details.help[open] ol,
-  details.help[open] > p { animation: rise .35s ease-out backwards; }
-
-  .lightbox[open] { animation: zoom-in .25s var(--bounce); }
-  .lightbox[open]::backdrop { animation: fade .25s ease-out; }
+@media (max-width: 34rem) {
+  .socials .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .socials .btn { width: 2.5rem; padding: 0; }
+  .socials .ico { margin: 0; width: 1.25em; height: 1.25em; }
 }
