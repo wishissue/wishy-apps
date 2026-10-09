@@ -4,6 +4,10 @@
     "owner": "wishissue",
     "title": "Wishissue",
     "heading": "Apps by Wishissue",
+    "links": {
+      "discord": "https://discord.com/invite/B5scEa987Y",
+      "youtube": "https://www.youtube.com/@wishismachine"
+    },
     "intro": "Pick an app and tap Get. Downloads come straight from GitHub, and you don't need an account.",
     "apps": [
       {
