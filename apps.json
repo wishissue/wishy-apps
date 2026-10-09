@@ -2,6 +2,10 @@
   "owner": "wishissue",
   "title": "Wishissue",
   "heading": "Apps by Wishissue",
+  "links": {
+    "discord": "https://discord.com/invite/B5scEa987Y",
+    "youtube": "https://www.youtube.com/@wishismachine"
+  },
   "intro": "Pick an app and tap Get. Downloads come straight from GitHub, and you don't need an account.",
   "apps": [
     {
@@ -9,7 +13,10 @@
       "tagline": "Frame-by-frame 2D animation for Android. Free, with no ads.",
       "about": "Draw, animate, add sound and export. No ads, no paywalls, no subscriptions and no tracking. Your projects stay on your device."
     },
-    { "repo": "wishtube", "name": "WishTube" },
+    {
+      "repo": "wishtube",
+      "name": "WishTube"
+    },
     "WishyBrowser",
     "wishwa",
     "telewish"
