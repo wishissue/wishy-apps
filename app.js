@@ -573,8 +573,8 @@
       app.beta && h('span', { class: 'chip warn' }, 'Beta'));
   }
 
-  function appRow(app) {
-    return h('li', { class: 'row' },
+  function appRow(app, i = 0) {
+    return h('li', { class: 'row', style: `--i:${i}` },
       icon(app),
       h('div', { class: 'info' },
         h('h2', { class: 'name' }, h('a', { href: `#/app/${encodeURIComponent(app.slug)}` }, app.name)),
@@ -608,8 +608,22 @@
       state.data.offline && h('p', { class: 'banner', role: 'status' },
         'GitHub couldn\'t be reached, so you\'re seeing saved info. Downloads still work, and details refresh when GitHub is back.'),
       state.data.apps.length
-        ? h('ul', { class: 'list' }, state.data.apps.map(appRow))
-        : h('p', { class: 'empty' }, 'No apps to show yet. Add repository names to apps.json to list them here.'));
+        ? h('ul', { class: 'list' }, state.data.apps.map((a, i) => appRow(a, i)))
+        : h('p', { class: 'empty' }, 'No apps to show yet. Add repository names to apps.json to list them here.'),
+      communityCard());
+  }
+
+  function communityCard() {
+    const l = cfg.links || {};
+    const ext = (href, label) => h('a', { class: 'btn sm soft', href, target: '_blank', rel: 'noopener' }, label);
+    return h('section', { class: 'community' },
+      h('div', {},
+        h('h2', {}, 'Join the community'),
+        h('p', {}, 'Chat, share feedback and see what is coming next. Or help keep the apps free.')),
+      h('div', { class: 'actions' },
+        l.discord && ext(l.discord, 'Discord'),
+        l.youtube && ext(l.youtube, 'YouTube'),
+        h('a', { class: 'btn sm', href: 'donate.html' }, 'Support')));
   }
 
   function openShot(url, alt) {
@@ -735,6 +749,22 @@
   if (!IN_BROWSER) {
     module.exports = { normalizeConfig, fetchApps };
     return;
+  }
+
+  // Material-style ripple on buttons.
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest && e.target.closest('.btn');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const size = Math.max(r.width, r.height) * 2;
+      const dot = h('span', { class: 'ripple' });
+      dot.style.width = dot.style.height = `${size}px`;
+      dot.style.left = `${e.clientX - r.left - size / 2}px`;
+      dot.style.top = `${e.clientY - r.top - size / 2}px`;
+      el.append(dot);
+      dot.addEventListener('animationend', () => dot.remove());
+    });
   }
 
   lightbox.addEventListener('click', () => lightbox.close());

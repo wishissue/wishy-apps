@@ -1,0 +1,33 @@
+{
+  "_help": "Edit 'raised' whenever you get a donation, commit, and the goal bar updates. At the start of a new month, set 'raised' back to 0 and change 'month'.",
+
+  "goal": 100,
+  "raised": 0,
+  "currency": "$",
+  "month": "October 2026",
+
+  "kofi": "https://ko-fi.com/wishismachine",
+
+  "networks": [
+    {
+      "id": "trc20",
+      "name": "Tron",
+      "tag": "TRC20",
+      "coin": "USDT",
+      "address": "TUn7M6syjxrgfcUskaxH7UdjnpUngh3fYp",
+      "qr": "qr/trc20.svg",
+      "note": "Lowest fees. Usually under a dollar, and confirms in about a minute.",
+      "badge": "Recommended"
+    },
+    {
+      "id": "erc20",
+      "name": "Ethereum",
+      "tag": "ERC20",
+      "coin": "USDT",
+      "address": "0x7c11cd045bb237e579e8ce58591313aff6f87781",
+      "qr": "qr/erc20.svg",
+      "note": "Higher network fees, so best for larger donations.",
+      "badge": ""
+    }
+  ]
+}
