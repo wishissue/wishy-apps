@@ -1,5 +1,5 @@
 {
-  "_help": "Edit 'raised' whenever you get a donation, commit, and the goal bar updates. At the start of a new month, set 'raised' back to 0 and change 'month'.",
+  "_help": "Edit 'raised' whenever you get a donation, commit, and the goal bar updates. At the start of a new month, set 'raised' back to 0 and change 'month'. Add names to 'supporters' to show a thank-you row (leave it empty to hide it).",
 
   "goal": 100,
   "raised": 0,
@@ -8,26 +8,44 @@
 
   "kofi": "https://ko-fi.com/wishismachine",
 
+  "links": {
+    "discord": "https://discord.com/invite/B5scEa987Y",
+    "youtube": "https://www.youtube.com/@wishismachine",
+    "github": "https://github.com/wishissue"
+  },
+
+  "supporters": [],
+
   "networks": [
     {
       "id": "trc20",
       "name": "Tron",
       "tag": "TRC20",
       "coin": "USDT",
+      "color": "#eb0029",
       "address": "TUn7M6syjxrgfcUskaxH7UdjnpUngh3fYp",
       "qr": "qr/trc20.svg",
-      "note": "Lowest fees. Usually under a dollar, and confirms in about a minute.",
-      "badge": "Recommended"
+      "note": "The cheapest way to send. Usually under a dollar in fees.",
+      "chips": [
+        { "icon": "bolt", "text": "Low fees" },
+        { "icon": "clock", "text": "About a minute" },
+        { "icon": "coin", "text": "Min 1 USDT" }
+      ]
     },
     {
       "id": "erc20",
       "name": "Ethereum",
       "tag": "ERC20",
       "coin": "USDT",
+      "color": "#627eea",
       "address": "0x7c11cd045bb237e579e8ce58591313aff6f87781",
       "qr": "qr/erc20.svg",
-      "note": "Higher network fees, so best for larger donations.",
-      "badge": ""
+      "note": "Network fees are higher, so it suits larger amounts.",
+      "chips": [
+        { "icon": "bolt", "text": "Higher fees" },
+        { "icon": "clock", "text": "A few minutes" },
+        { "icon": "coin", "text": "Min 1 USDT" }
+      ]
     }
   ]
 }
