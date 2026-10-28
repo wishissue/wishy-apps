@@ -19,6 +19,12 @@
     },
     "WishyBrowser",
     "wishwa",
-    "telewish"
+    "telewish",
+    {
+      "repo": "WishiFiles",
+      "name": "Wishi Files",
+      "tagline": "A tiny, private file manager for Android TV and phones.",
+      "about": "Browse storage, send files to and from any phone over your home Wi-Fi, and inspect APKs before you install them. No ads, no accounts, no cloud, and the whole app is under 200 KB."
+    }
   ]
 }
